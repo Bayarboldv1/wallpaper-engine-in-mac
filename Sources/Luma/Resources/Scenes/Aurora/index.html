@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aurora</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020c13}canvas{display:block;width:100%;height:100%}</style>
+<canvas aria-hidden="true"></canvas>
+<script>
+(() => {
+  'use strict';
+  const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d',{alpha:false});
+  let w=0,h=0,t=0,last=0,request=0,paused=false;
+  let seed=617;const random=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};
+  const stars=Array.from({length:170},()=>({x:random(),y:random()*.7,r:.25+random()*.8,a:.15+random()*.65,p:random()*6.28}));
+  const mountains=[Array.from({length:23},(_,i)=>({x:i/22,y:.66+random()*.13})),Array.from({length:27},(_,i)=>({x:i/26,y:.75+random()*.12})),Array.from({length:20},(_,i)=>({x:i/19,y:.83+random()*.11}))];
+  function resize(){const scale=Math.min(devicePixelRatio||1,1.5,2400/innerWidth);w=canvas.width=Math.max(1,Math.round(innerWidth*scale));h=canvas.height=Math.max(1,Math.round(innerHeight*scale));draw()}
+  function draw(){
+    let gradient=ctx.createLinearGradient(0,0,w*.3,h);gradient.addColorStop(0,'#020b17');gradient.addColorStop(.55,'#06332e');gradient.addColorStop(1,'#071722');ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
+    let glow=ctx.createRadialGradient(w*.57,h*.38,0,w*.57,h*.38,w*.63);glow.addColorStop(0,'#0b514937');glow.addColorStop(1,'#04121a00');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+    for(const star of stars){ctx.beginPath();ctx.arc(star.x*w,star.y*h,star.r*Math.max(1,w/1500),0,Math.PI*2);ctx.fillStyle=`rgba(192,232,231,${star.a*(.8+.2*Math.sin(t*.3+star.p))})`;ctx.fill()}
+    ctx.globalCompositeOperation='screen';
+    for(let ribbon=0;ribbon<4;ribbon++){
+      const base=h*(.16+ribbon*.074),width=w/78;
+      for(let i=0;i<82;i++){
+        const x=(i-2)/78*w;
+        const curve=Math.sin(i*.065+t*.075+ribbon*.7)*h*.095+Math.sin(i*.145-t*.045+ribbon)*h*.037;
+        const top=base+curve,bottom=top+h*(.15+.11*Math.sin(i*.055+ribbon*.6+t*.04));
+        const a=(.06+.035*Math.sin(i*.25+t*.11+ribbon))*(.45+.55*Math.sin(Math.PI*i/82));
+        const curtain=ctx.createLinearGradient(0,top-h*.13,0,bottom);
+        curtain.addColorStop(0,'rgba(42,179,140,0)');curtain.addColorStop(.44,`rgba(${ribbon%2?'42,162,180':'62,228,144'},${a})`);curtain.addColorStop(.58,`rgba(110,255,188,${a*1.9})`);curtain.addColorStop(1,'rgba(30,162,153,0)');
+        ctx.fillStyle=curtain;ctx.fillRect(x,top-h*.13,width*1.25,bottom-top+h*.13);
+      }
+    }
+    ctx.globalCompositeOperation='source-over';
+    mountains.forEach((points,index)=>{ctx.beginPath();ctx.moveTo(0,h);points.forEach(point=>ctx.lineTo(point.x*w,point.y*h));ctx.lineTo(w,h);ctx.closePath();ctx.fillStyle=['#071d25','#05151e','#030d16'][index];ctx.fill()});
+    const shade=ctx.createLinearGradient(0,h*.72,0,h);shade.addColorStop(0,'#01090e00');shade.addColorStop(1,'#01070db3');ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
+  }
+  function frame(now){request=0;if(paused||document.hidden)return;if(!last||now-last>=1000/30){t+=last?Math.min((now-last)/1000,.1):0;last=now;draw()}request=requestAnimationFrame(frame)}
+  function reconcile(){if(paused||document.hidden){if(request)cancelAnimationFrame(request);request=0;last=0}else if(!request){last=0;request=requestAnimationFrame(frame)}}
+  window.wallpaperSetPaused=value=>{paused=Boolean(value);reconcile()};
+  addEventListener('resize',resize,{passive:true});document.addEventListener('visibilitychange',reconcile);resize();reconcile();
+})();
+</script></html>
