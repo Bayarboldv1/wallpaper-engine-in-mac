@@ -130,7 +130,7 @@ struct LibraryView: View {
     private func hero(_ wallpaper: Wallpaper) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
-                WallpaperPreview(wallpaper: wallpaper, isPaused: state.isPaused || !state.previewVisible || !state.applicationActive, muted: state.muted)
+                WallpaperPreview(wallpaper: wallpaper, isPaused: state.isPaused || !state.previewVisible || !state.applicationActive)
                     .allowsHitTesting(false)
                 LinearGradient(colors: [.clear, .black.opacity(0.08), .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 7) {
@@ -235,7 +235,7 @@ struct LibraryView: View {
             Spacer(minLength: 8)
             Button { state.muted.toggle() } label: {
                 Image(systemName: state.muted ? "speaker.slash" : "speaker.wave.2").font(.system(size: 14)).frame(width: 29, height: 32)
-            }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.5)).help(state.muted ? "Unmute wallpapers" : "Mute wallpapers")
+            }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.5)).help(state.muted ? "Unmute desktop wallpaper audio" : "Mute desktop wallpaper audio")
             Menu {
                 Button("Apply to All Displays") { state.applySelected(allDisplays: true) }
                 Button("Restore macOS Wallpaper on This Display") { state.clearDisplay() }
@@ -259,7 +259,7 @@ struct LibraryView: View {
             HStack { Text("Make it yours").font(.system(size: 23, weight: .semibold)); Spacer(); Button { showSettings = false } label: { Image(systemName: "xmark").font(.system(size: 11)).frame(width: 25, height: 25) }.buttonStyle(.plain) }
             Text("Little details. A lighter footprint.").font(.system(size: 12)).foregroundStyle(.secondary)
             Divider()
-            Toggle("Mute wallpaper audio", isOn: $state.muted)
+            Toggle("Mute desktop wallpaper audio", isOn: $state.muted)
             Toggle("Pause in Low Power Mode", isOn: $state.pauseOnLowPower)
             Text("Wallpapers also pause when your displays sleep or your desktop session becomes inactive. Built-in scenes render at up to 30 fps.")
                 .font(.system(size: 11)).foregroundStyle(.secondary).lineSpacing(4)

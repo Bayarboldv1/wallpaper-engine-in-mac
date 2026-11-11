@@ -6,14 +6,13 @@ import WebKit
 struct WallpaperPreview: NSViewRepresentable {
     let wallpaper: Wallpaper
     let isPaused: Bool
-    let muted: Bool
 
     func makeNSView(context: Context) -> WallpaperPreviewView {
         WallpaperPreviewView()
     }
 
     func updateNSView(_ nsView: WallpaperPreviewView, context: Context) {
-        nsView.update(wallpaper: wallpaper, paused: isPaused, muted: muted)
+        nsView.update(wallpaper: wallpaper, paused: isPaused)
     }
 
     static func dismantleNSView(_ nsView: WallpaperPreviewView, coordinator: ()) {
@@ -29,7 +28,6 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
     private var videoLayer: AVPlayerLayer?
     private var itemObservation: NSKeyValueObservation?
     private var paused = false
-    private var muted = true
     private var allowedRoot: URL?
     private var mediaSuspended = false
     private var mediaTransition = 0
@@ -51,9 +49,8 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
         CATransaction.commit()
     }
 
-    func update(wallpaper: Wallpaper, paused: Bool, muted: Bool) {
+    func update(wallpaper: Wallpaper, paused: Bool) {
         self.paused = paused
-        self.muted = muted
         if wallpaperID != wallpaper.id {
             cleanUp()
             wallpaperID = wallpaper.id
@@ -71,6 +68,7 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
         switch wallpaper.kind {
         case .video:
             let queue = AVQueuePlayer()
+            queue.isMuted = true
             let item = AVPlayerItem(url: url)
             player = queue
             looper = AVPlayerLooper(player: queue, templateItem: item)
@@ -90,10 +88,10 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
         case .web:
             let configuration = WKWebViewConfiguration()
             configuration.websiteDataStore = .nonPersistent()
-            configuration.mediaTypesRequiringUserActionForPlayback = []
+            configuration.mediaTypesRequiringUserActionForPlayback = .audio
             configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
             configuration.userContentController.addUserScript(
-                WKUserScript(source: WebPlayback.bootstrap, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+                WKUserScript(source: WebPlayback.bootstrap + "\n" + Self.muteBeforePlay, injectionTime: .atDocumentStart, forMainFrameOnly: false)
             )
             let web = WKWebView(frame: bounds, configuration: configuration)
             web.autoresizingMask = [.width, .height]
@@ -108,11 +106,10 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
     }
 
     private func updatePlayback() {
-        player?.isMuted = muted
         paused ? player?.pause() : player?.play()
         guard let web = webView else { return }
         if paused {
-            web.evaluateJavaScript(WebPlayback.updateScript(paused: true, muted: muted), completionHandler: nil)
+            web.evaluateJavaScript(WebPlayback.updateScript(paused: true, muted: true), completionHandler: nil)
             if !mediaSuspended {
                 mediaSuspended = true
                 mediaTransition += 1
@@ -128,12 +125,23 @@ final class WallpaperPreviewView: NSView, WKNavigationDelegate {
                 guard let self, let web, self.webView === web, self.mediaTransition == transition else { return }
                 self.resumePending = false
                 guard !self.paused else { return }
-                web.evaluateJavaScript(WebPlayback.updateScript(paused: false, muted: self.muted), completionHandler: nil)
+                web.evaluateJavaScript(WebPlayback.updateScript(paused: false, muted: true), completionHandler: nil)
             }
         } else if !resumePending {
-            web.evaluateJavaScript(WebPlayback.updateScript(paused: false, muted: muted), completionHandler: nil)
+            web.evaluateJavaScript(WebPlayback.updateScript(paused: false, muted: true), completionHandler: nil)
         }
     }
+
+    // Mute scripted playback before WebKit checks whether autoplay is allowed.
+    private static let muteBeforePlay = """
+    (() => {
+      const play = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function() {
+        this.muted = true;
+        return play.call(this);
+      };
+    })();
+    """
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard navigationAction.targetFrame != nil,
